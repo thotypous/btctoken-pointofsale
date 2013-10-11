@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>icon.png</file>
+        <file>wait.gif</file>
+        <file>usb.png</file>
+    </qresource>
+</RCC>
