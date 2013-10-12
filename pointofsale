@@ -364,10 +364,6 @@ class TransactionProcessThread(CancelableThread):
         # do not kill the thread past this point
         self.critical = True
         
-        print 'debugging info'
-        btctoken.recv_dbg(3)
-        print '\n\n'
-        
         verifying_key = bitcoin.ecdsa.VerifyingKey.from_string(orig_pubkey[1:], curve=bitcoin.SECP256k1)
         
         # get signatures from device
