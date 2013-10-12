@@ -254,7 +254,7 @@ class TransactionProcessThread(CancelableThread):
             try:
                 self.do_tx()
             except IOError as e:
-                if e.errno == 19:
+                if e.errno in [5, 19]:
                     traceback.print_exc()
                     self.err_msg = 'USB device unplugged.'
                     return
@@ -421,7 +421,7 @@ class TransactionProcessWindow(WaitWindow):
                 time.sleep(.01)
             self.hide()
         elif self.err_msg:
-            QtGui.QMessageBox.warning(self, 'Error', self.err_msg)
+            QtGui.QMessageBox.warning(self, 'Error', unicode(self.err_msg, 'utf-8'))
 
 
 def main():
