@@ -48,6 +48,7 @@ class InputWindow(QtGui.QDialog):
     def next_handler(self):
         try:
             self.amount = Decimal(self._ui.amount.text())
+            assert(self.amount > 0)
             assert(self.amount < MAX_BTC)
             self.accept()
         except:
