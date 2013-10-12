@@ -23,8 +23,8 @@
    <string>BITCOIN Transaction</string>
   </property>
   <property name="windowIcon">
-   <iconset>
-    <normaloff>Bitcoin.png</normaloff>Bitcoin.png</iconset>
+   <iconset resource="pointofsale.qrc">
+    <normaloff>:/images/icon.png</normaloff>:/images/icon.png</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
