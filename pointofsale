@@ -250,7 +250,14 @@ class TransactionProcessThread(CancelableThread):
         
     def run(self):
         try:
-            self.do_tx()
+            try:
+                self.do_tx()
+            except IOError as e:
+                if e.errno == 19:
+                    traceback.print_exc()
+                    self.err_msg = 'USB device unplugged.'
+                    return
+                raise e
         except:
             traceback.print_exc()
             self.err_msg = traceback.format_exc()
@@ -309,7 +316,13 @@ class TransactionProcessThread(CancelableThread):
         wallet_config.save()
         
         tx_amount = int(tx_amount*Decimal('1e8'))  # from BTC to Satoshi
-        raw_tx = wallet.mktx([(DEST_ADDR, tx_amount)], None, None, orig_addr, None)
+        try:
+            raw_tx = wallet.mktx([(DEST_ADDR, tx_amount)], None, None, orig_addr, None)
+        except ValueError as e:
+            if e.message == 'Not enough funds':
+                self.err_msg = e.message
+                return
+            raise e
         print 'raw tx:', raw_tx.raw
         print repr(raw_tx.deserialize())
         btctoken.send_tx(unhexlify(raw_tx.raw))
