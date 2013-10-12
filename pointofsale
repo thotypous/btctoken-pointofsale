@@ -132,6 +132,13 @@ class DeviceWaitThread(CancelableThread):
         
     def run(self):
         context = pyudev.Context()
+        # try to enumerate from already plugged devices
+        for device in context.list_devices(subsystem=self.subsystem):
+            usbid = self._find_usbid(device)
+            if usbid == (self.vendor, self.product):
+                self.udev_dev = device
+                return
+        # wait for the device to be plugged
         monitor = pyudev.Monitor.from_netlink(context)
         monitor.filter_by(self.subsystem)
         observer = pyudev.MonitorObserver(monitor, self.udev_event)
