@@ -400,6 +400,8 @@ class TransactionProcessThread(CancelableThread):
         print 'complete tx:', raw_tx.raw
         print '\n\n'
         
+        wallet.sendtx(raw_tx)
+        
         self.completed_ok = True
         self.stop_subthreads()
         
