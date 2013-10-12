@@ -162,10 +162,15 @@ class DeviceWaitWindow(WaitWindow):
 
 
 class BTCToken:
+    dev = None
     def __init__(self, device_node):
         self.dev = open(device_node, 'r+b', buffering=0)
     def __del__(self):
-        self.dev.close()
+        self.close()
+    def close(self):
+        if self.dev:
+            self.dev.close()
+        self.dev = None
     def send(self, packet):
         #print 'send:', repr(packet)
         self.dev.write('\x00' + packet.ljust(64, '\x00'))
@@ -447,7 +452,12 @@ def main():
         dlg = DeviceWaitWindow(0xffff, 0x0bad)
         if dlg.dev == None:
             continue  # cancelled
-        dlg = TransactionProcessWindow(BTCToken(dlg.dev.device_node), amount)
+        btctoken = BTCToken(dlg.dev.device_node)
+        dlg = TransactionProcessWindow(btctoken, amount)
+        try:
+            btctoken.close()
+        except:
+            traceback.print_exc()
         print 'completed ok:', dlg.completed_ok
 
 
