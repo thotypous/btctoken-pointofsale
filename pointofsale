@@ -161,6 +161,12 @@ class DeviceWaitWindow(WaitWindow):
         self.dev = self.thread.udev_dev
 
 
+class MyWalletVerifier(WalletVerifier):
+    def add_header(self, hdr):
+        with self.lock:
+            self.pending_headers.append(hdr)
+
+
 class BTCToken:
     dev = None
     def __init__(self, device_node):
@@ -201,7 +207,12 @@ class BTCToken:
         self.send('MerkleNode\xff')
     def send_blocks(self, verifier, blk):
         while True:
-            hdr = verifier.header_to_string(verifier.read_header(blk))
+            hdr = verifier.read_header(blk)
+            if not hdr:
+                print 'requesting blk #', blk, 'from server'
+                hdr = verifier.interface.synchronous_get([ ('blockchain.block.get_header',[blk]) ])[0]
+                verifier.add_header(hdr)
+            hdr = verifier.header_to_string(hdr)
             print 'blk #', blk, hdr
             hdr = unhexlify(hdr)
             blk += 1
@@ -304,7 +315,7 @@ class TransactionProcessThread(CancelableThread):
         self.wallet = wallet
         
         wallet.interface = interface
-        verifier = WalletVerifier(interface, wallet_config)
+        verifier = MyWalletVerifier(interface, wallet_config)
         self.verifier = verifier
         wallet.set_verifier(verifier)
         synchronizer = WalletSynchronizer(wallet, wallet_config)
