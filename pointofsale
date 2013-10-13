@@ -292,21 +292,23 @@ class TransactionProcessThread(CancelableThread):
         orig_addr = bitcoin.public_key_to_bc_address(orig_pubkey)
         print '\n\nCostumer bitcoin address:', orig_addr, '\n'
         
-        interface = Interface({'server':ELECTRUM_SERVER})
-        self.interface = interface
-        interface.register_callback('disconnected', interface.stop)
-        interface.start()
-        if not interface.is_connected:
-            self.err_msg = 'Error connecting to the Electrum server, please try again.'
-            return
-        
         wallet_config = SimpleConfig({
             'wallet_path': os.path.join(CACHE_DIR,'%s.wallet'%orig_addr)
         })
         wallet_config.set_key('master_public_key', 'placeholder')
         wallet_config.set_key('use_change', False)
         wallet_config.set_key('gap_limit', 1)
+        wallet_config.set_key('server', ELECTRUM_SERVER)
+        wallet_config.set_key('auto_cycle', True)
         self.wallet_config = wallet_config
+        
+        interface = Interface(wallet_config)
+        self.interface = interface
+        interface.register_callback('disconnected', interface.stop)
+        interface.start()
+        if not interface.is_connected:
+            self.err_msg = 'Error connecting to the Electrum server, please try again.'
+            return
         
         wallet = Wallet(wallet_config)
         wallet.SequenceClass = genFixedPubKeySequence(orig_addr)
