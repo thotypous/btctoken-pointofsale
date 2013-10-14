@@ -13,7 +13,7 @@ from waitwindow import Ui_WaitWindow
 from PySide import QtGui, QtCore
 
 
-DEST_ADDR = '1Ee7G1y5odBa93CTtfDgFxcxQHmiwcYRNw'
+DEST_ADDR = '16jRWgLUAagRabJgemRdjmKYuXp195Hsk6'
 MAX_BTC = 21.e6
 ELECTRUM_SERVER = 'electrum.no-ip.org:50002:s'
 CACHE_DIR = './cache'
@@ -34,6 +34,7 @@ class InputWindow(QtGui.QDialog):
         super(InputWindow, self).__init__()
         self._ui = Ui_InputWindow()
         self._ui.setupUi(self)
+        self.adjustSize()
         centerWidget(self)
         
         validator = QtGui.QDoubleValidator(0., MAX_BTC, 8)
