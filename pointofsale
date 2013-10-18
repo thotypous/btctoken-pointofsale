@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
-import os, sys, struct, time, thread, socket, traceback
+import os, sys, struct, time, thread, socket, traceback, errno
 from binascii import unhexlify, hexlify
 from decimal import Decimal
 
@@ -70,6 +70,8 @@ class CancelableThread(QtCore.QThread):
         
     
 class WaitWindow(QtGui.QDialog):
+    _already_finished = False
+    
     def __init__(self, thread):
         super(WaitWindow, self).__init__()
         self._ui = Ui_WaitWindow()
@@ -92,11 +94,14 @@ class WaitWindow(QtGui.QDialog):
     def finished_handler(self, r):
         if self.thread.isRunning():
             self.thread.cancel()
-            if self.thread.critical:
-                self.thread.wait()
-            elif not self.thread.wait(10000):
-                self.thread.terminate()
-        self._finished(r)
+            self.thread.wait()
+            #if self.thread.critical:
+            #    self.thread.wait()
+            #elif not self.thread.wait(25000):
+            #    self.thread.terminate()
+        if not self._already_finished:
+            self._already_finished = True
+            self._finished(r)
         
     def _finished(self, r):
         pass
@@ -167,18 +172,50 @@ class MyWalletVerifier(WalletVerifier):
         with self.lock:
             self.pending_headers.append(hdr)
 
+class OperationInterrupted(Exception):
+    pass
+
 
 class BTCToken:
-    dev = None
+    aborted = False
+    fd = None
     def __init__(self, device_node):
-        self.dev = open(device_node, 'r+b', buffering=0)
+        self.fd = os.open(device_node, os.O_RDWR | os.O_NONBLOCK)
+    def abort(self):
+        self.aborted = True
+    def close(self):
+        if self.fd:
+            os.close(self.fd)
+            self.fd = None
+    def __del__(self):
+        self.close()
     def send(self, packet):
         #print 'send:', repr(packet)
-        self.dev.write('\x00' + packet.ljust(64, '\x00'))
+        packet = '\x00' + packet.ljust(64, '\x00')
+        while not self.aborted:
+            try:
+                ret = os.write(self.fd, packet)
+                if ret > 0:
+                    return
+                if ret < 0:
+                    raise OSError(errno.EIO, 'unknown I/O error')
+            except OSError as e:
+                if e.errno != errno.EWOULDBLOCK:
+                    raise
+            time.sleep(.005)
+        raise OperationInterrupted()
     def recv(self):
-        packet = self.dev.read(64)
-        #print 'recv:', repr(packet)
-        return packet
+        while not self.aborted:
+            try:
+                packet = os.read(self.fd, 64)
+                if len(packet) > 0:
+                    #print 'recv:', repr(packet)
+                    return packet
+            except OSError as e:
+                if e.errno != errno.EWOULDBLOCK:
+                    raise
+            time.sleep(.005)
+        raise OperationInterrupted()
     def ask_pubkey(self):
         self.send('BTCToken')
         packet = self.recv()
@@ -265,21 +302,20 @@ class TransactionProcessThread(CancelableThread):
         
     def cancel(self):
         self.canceled = True
-        self.stop_subthreads()
+        if not self.critical:
+            self.btctoken.abort()
+            self.stop_subthreads()
         
     def run(self):
         try:
-            try:
-                self.do_tx()
-            except IOError as e:
-                if e.errno in [5, 19]:
-                    traceback.print_exc()
-                    self.err_msg = 'USB device unplugged.'
-                    return
-                raise e
+            self.do_tx()
+        except OperationInterrupted:
+            traceback.print_exc()
         except:
             traceback.print_exc()
             self.err_msg = traceback.format_exc()
+        finally:
+            self.btctoken.close()
         
     def do_tx(self):
         tx_amount = self.amount
@@ -343,7 +379,7 @@ class TransactionProcessThread(CancelableThread):
             if e.message == 'Not enough funds':
                 self.err_msg = e.message
                 return
-            raise e
+            raise
         print 'raw tx:', raw_tx.raw
         print repr(raw_tx.deserialize())
         btctoken.send_tx(unhexlify(raw_tx.raw))
@@ -380,16 +416,14 @@ class TransactionProcessThread(CancelableThread):
                 btctoken.send_blocks(verifier, tx_height)
                 btctoken.recv_ok()
             print '\n\n'
-            
-        # do not kill the thread past this point
-        self.critical = True
         
         verifying_key = bitcoin.ecdsa.VerifyingKey.from_string(orig_pubkey[1:], curve=bitcoin.SECP256k1)
         
         # get signatures from device
         print 'should now get', len(raw_tx.inputs), 'signatures'
         for i in xrange(len(raw_tx.inputs)):
-            sig = btctoken.recv()
+            sig = btctoken.recv()            
+            self.critical = True       # do not kill the thread past this point
             print 'sig:', hexlify(sig)
             
             # convert signature to DER format
