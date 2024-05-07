@@ -26,6 +26,7 @@ Participaram do projeto:
 * André de Freitas Smaira
 * Antenor Fabbri Petrilli Filho
 * Prof. Dr. Attilio Cucchieri
+* Prof. Dr. Carlos Antonio Ruggiero
 * Daniel Marchini Haddad
 * Felipe Ferreira
 * Gabriel Camoese Salla
